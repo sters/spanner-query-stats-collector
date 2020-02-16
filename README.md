@@ -29,6 +29,7 @@ Use this [sters/spanner-stats-collector - Docker Hub](https://hub.docker.com/r/s
 
 ```sh
 docker run \
+  --rm
   -e PROJECT_ID="xxxxx" \
   -e INSTANCE_ID="xxxxx" \
   -e DATABASE_ID="xxxxx" \
