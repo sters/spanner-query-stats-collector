@@ -1,5 +1,9 @@
 # spanner-stats-collector
 
+![Go](https://github.com/sters/spanner-stats-collector/workflows/Go/badge.svg)
+![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/sters/spanner-stats-collector?style=plastic)
+
+
 [Google Cloud Spanner](https://cloud.google.com/spanner)'s query stats collector.
 
 ## Usage
@@ -21,8 +25,16 @@ This application is [cmd/collector/main.go](https://github.com/sters/spanner-sta
 
 Simple example with your local credential.
 
+Use this [sters/spanner-stats-collector - Docker Hub](https://hub.docker.com/r/sters/spanner-stats-collector)
+
 ```sh
-docker run -it -e PROJECT_ID="xxxxx" -e INSTANCE_ID="xxxxx" -e DATABASE_ID="xxxxx" -e CREDENTIAL_FILE="/etc/google/application_default_credentials.json" -v ~/.config/gcloud/:/etc/google/:ro sters/spanner-stats-collector:latest
+docker run \
+  -e PROJECT_ID="xxxxx" \
+  -e INSTANCE_ID="xxxxx" \
+  -e DATABASE_ID="xxxxx" \
+  -e CREDENTIAL_FILE="/etc/google/application_default_credentials.json" \
+  -v ~/.config/gcloud/:/etc/google/:ro \
+  sters/spanner-stats-collector:latest
 ```
 
 ## Customize to your application
