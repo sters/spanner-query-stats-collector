@@ -30,13 +30,19 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	client, err := stats.NewClient(ctx, *projectID, *instanceID, *databaseID, *credentialFile)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
 	zapConfig := zap.NewProductionConfig()
 	zapConfig.OutputPaths = []string{"stdout"}
 	zapConfig.ErrorOutputPaths = []string{"stderr"}
 	logger, _ := zapConfig.Build()
 
 	worker := stats.NewWorker(
-		stats.NewClient(ctx, *projectID, *instanceID, *databaseID, *credentialFile),
+		client,
 		stats.StatTypeMin,
 		stats.NewZapWriter(logger),
 	)

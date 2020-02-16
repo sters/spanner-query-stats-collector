@@ -7,7 +7,7 @@
 See releases that can be easy to use collect your query stats.
 Or you can use `go get` command.
 
-```
+```sh
 go get github.com/sters/spanner-stats-collector
 ```
 
