@@ -14,10 +14,10 @@ import (
 )
 
 func main() {
-	projectID := flag.String("project_id", "", "Goocle Cloud Platform's PROJECT_ID")
-	instanceID := flag.String("instance_id", "", "Goocle Cloud Spanner's INSTANCE_ID")
-	databaseID := flag.String("database_id", "", "Goocle Cloud Spanner's DATABASE_ID")
-	credentialFile := flag.String("credential", "", "Goocle Cloud Platform's Credential file a.k.a. IAM Key file")
+	projectID := flag.String("project_id", "", "Google Cloud Platform's PROJECT_ID")
+	instanceID := flag.String("instance_id", "", "Google Cloud Spanner's INSTANCE_ID")
+	databaseID := flag.String("database_id", "", "Google Cloud Spanner's DATABASE_ID")
+	credentialFile := flag.String("credential", "", "Google Cloud Platform's Credential file a.k.a. IAM Key file")
 	flag.Parse()
 
 	if *projectID == "" || *instanceID == "" || *databaseID == "" {
