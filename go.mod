@@ -1,4 +1,4 @@
-module github.com/sters/spanner-stats-collector
+module github.com/sters/spanner-query-stats-collector
 
 go 1.13
 

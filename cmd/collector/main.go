@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/sters/spanner-stats-collector/stats"
+	"github.com/sters/spanner-query-stats-collector/stats"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )

@@ -1,12 +1,12 @@
 FROM golang:1.13 as builder
 
-WORKDIR /go/src/github.com/sters/spanner-stats-collector
+WORKDIR /go/src/github.com/sters/spanner-query-stats-collector
 
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . ./
-RUN CGO_ENABLED=0 GOOS=linux go install -v github.com/sters/spanner-stats-collector/cmd/collector
+RUN CGO_ENABLED=0 GOOS=linux go install -v github.com/sters/spanner-query-stats-collector/cmd/collector
 
 
 FROM alpine:latest
