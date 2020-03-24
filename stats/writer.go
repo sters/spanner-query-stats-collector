@@ -2,6 +2,7 @@ package stats
 
 import (
 	"context"
+	"strings"
 
 	"go.opentelemetry.io/otel/api/global"
 	"go.opentelemetry.io/otel/api/key"
@@ -64,7 +65,10 @@ func (w *otelWriter) Write(stats []*Stat) {
 		w.meter.RecordBatch(
 			context.Background(),
 			w.meter.Labels(
-				key.String("Text", s.Text),
+				key.String(
+					"Text",
+					strings.NewReplacer("\r", " ", "\n", " ", "\t", " ").Replace(s.Text),
+				),
 				key.Int64("TextFingerprint", s.TextFingerprint),
 			),
 			w.measures.intervalEnd.Measurement(s.IntervalEnd.UnixNano()),
@@ -80,7 +84,7 @@ func (w *otelWriter) Write(stats []*Stat) {
 
 // NewOpenTelemetryWriter return new Writer of OpenTelemetry
 func NewOpenTelemetryWriter() Writer {
-	const name = "spanner-query-stats-collector"
+	const name = "spanner.querystats"
 
 	meter := global.Meter(name)
 	must := metric.Must(meter)
@@ -88,13 +92,13 @@ func NewOpenTelemetryWriter() Writer {
 	return &otelWriter{
 		meter: meter,
 		measures: otelMeasures{
-			intervalEnd:       must.NewInt64Measure("IntervalEnd"),
-			executionCount:    must.NewInt64Counter("ExecutionCount"),
-			avgLatencySeconds: must.NewFloat64Measure("AvgLatencySeconds"),
-			avgRows:           must.NewFloat64Measure("AvgRows"),
-			avgBytes:          must.NewFloat64Measure("AvgBytes"),
-			avgRowsScanned:    must.NewFloat64Measure("AvgRowsScanned"),
-			avgCPUSeconds:     must.NewFloat64Measure("AvgCpuSeconds"),
+			intervalEnd:       must.NewInt64Measure(name + ".IntervalEnd"),
+			executionCount:    must.NewInt64Counter(name + ".ExecutionCount"),
+			avgLatencySeconds: must.NewFloat64Measure(name + ".AvgLatencySeconds"),
+			avgRows:           must.NewFloat64Measure(name + ".AvgRows"),
+			avgBytes:          must.NewFloat64Measure(name + ".AvgBytes"),
+			avgRowsScanned:    must.NewFloat64Measure(name + ".AvgRowsScanned"),
+			avgCPUSeconds:     must.NewFloat64Measure(name + ".AvgCpuSeconds"),
 		},
 	}
 }
