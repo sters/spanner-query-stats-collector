@@ -3,6 +3,7 @@ package stats
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/spanner"
@@ -94,6 +95,8 @@ ORDER BY interval_end DESC;`,
 		if err != nil {
 			return nil
 		}
+
+		b.Text = strings.TrimSpace(b.Text)
 		results = append(results, &b)
 	}
 
