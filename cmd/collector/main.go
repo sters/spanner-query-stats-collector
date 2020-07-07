@@ -82,7 +82,7 @@ func main() {
 
 	worker := stats.NewWorker(
 		client,
-		stats.StatTypeMin,
+		stats.StatDurationMin,
 		writer,
 	)
 

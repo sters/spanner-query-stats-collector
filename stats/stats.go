@@ -10,40 +10,40 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-type statType int
+type statDuration int
 
 const (
-	// StatTypeMin focus 1 minute
-	StatTypeMin statType = iota
-	// StatType10Min focus 10 minutes
-	StatType10Min
-	// StatTypeHour focus 1 hour
-	StatTypeHour
+	// StatDurationMin focus 1 minute
+	StatDurationMin statDuration = iota
+	// StatDuration10Min focus 10 minutes
+	StatDuration10Min
+	// StatDurationHour focus 1 hour
+	StatDurationHour
 )
 
-func (s statType) String() string {
+func (s statDuration) String() string {
 	switch s {
-	case StatType10Min:
+	case StatDuration10Min:
 		return "10minute"
-	case StatTypeHour:
+	case StatDurationHour:
 		return "hour"
 	}
 	return "minute"
 }
 
-func (s statType) Duration() time.Duration {
+func (s statDuration) Duration() time.Duration {
 	switch s {
-	case StatType10Min:
+	case StatDuration10Min:
 		return 10 * time.Minute
-	case StatTypeHour:
+	case StatDurationHour:
 		return 1 * time.Hour
 	}
 	return 1 * time.Minute
 }
 
-// Stat track the queries with the highest CPU usage during a specific time period
+// QueryStat track the queries with the highest CPU usage during a specific time period
 // followed https://cloud.google.com/spanner/docs/query-stats-tables
-type Stat struct {
+type QueryStat struct {
 	IntervalEnd       time.Time `spanner:"INTERVAL_END"`
 	Text              string    `spanner:"TEXT"`
 	TextTruncated     bool      `spanner:"TEXT_TRUNCATED"`
@@ -56,8 +56,8 @@ type Stat struct {
 	AvgCPUSeconds     float64   `spanner:"AVG_CPU_SECONDS"`
 }
 
-// GetStats returns Stat collection with specific time period
-func (c *Client) GetStats(ctx context.Context, t statType) []*Stat {
+// GetQueryStats returns Stat collection with specific time period
+func (c *Client) GetQueryStats(ctx context.Context, t statDuration) []*QueryStat {
 	txn, err := c.spannerClient.BatchReadOnlyTransaction(ctx, spanner.ExactStaleness(time.Minute))
 	if err != nil {
 		return nil
@@ -79,7 +79,7 @@ ORDER BY interval_end DESC;`,
 	)))
 	defer iter.Stop()
 
-	results := make([]*Stat, 0, iter.RowCount)
+	results := make([]*QueryStat, 0, iter.RowCount)
 
 	for {
 		row, err := iter.Next()
@@ -90,13 +90,81 @@ ORDER BY interval_end DESC;`,
 			return nil
 		}
 
-		var b Stat
+		var b QueryStat
 		err = row.ToStruct(&b)
 		if err != nil {
 			return nil
 		}
 
 		b.Text = strings.TrimSpace(b.Text)
+		results = append(results, &b)
+	}
+
+	return results
+}
+
+// TransactionStat track the queries with the highest CPU usage during a specific time period
+// followed https://cloud.google.com/spanner/docs/introspection/transaction-statistics
+type TransactionStat struct {
+	IntervalEnd                   time.Time `spanner:"INTERVAL_END"`
+	Fprint                        int64     `spanner:"FPRINT"`
+	ReadColumns                   []string  `spanner:"READ_COLUMNS"`
+	WriteConstructiveColumns      []string  `spanner:"WRITE_CONSTRUCTIVE_COLUMNS"`
+	WriteDeleteTables             []string  `spanner:"WRITE_DELETE_TABLES"`
+	CommitAttemptCount            int64     `spanner:"COMMIT_ATTEMPT_COUNT"`
+	CommitFailedPreconditionCount int64     `spanner:"COMMIT_FAILED_PRECONDITION_COUNT"`
+	CommitAbortCount              int64     `spanner:"COMMIT_ABORT_COUNT"`
+	AvgParticipants               float64   `spanner:"AVG_PARTICIPANTS"`
+	AvgTotalLatencySeconds        float64   `spanner:"AVG_TOTAL_LATENCY_SECONDS"`
+	AvgCommitLatencySeconds       float64   `spanner:"AVG_COMMIT_LATENCY_SECONDS"`
+	AvgBytes                      float64   `spanner:"AVG_BYTES"`
+}
+
+// GetTransactionStats returns Stat collection with specific time period
+func (c *Client) GetTransactionStats(ctx context.Context, t statDuration) []*TransactionStat {
+	txn, err := c.spannerClient.BatchReadOnlyTransaction(ctx, spanner.ExactStaleness(time.Minute))
+	if err != nil {
+		return nil
+	}
+	defer txn.Close()
+
+	iter := txn.Query(ctx, spanner.NewStatement(fmt.Sprintf(
+		`SELECT
+	interval_end,
+	fprint,
+	read_columns,
+	write_constructive_columns,
+	write_delete_tables,
+	commit_attempt_count,
+	commit_failed_precondition_count,
+	commit_abort_count,
+	avg_participants,
+	avg_total_latency_seconds,
+	avg_commit_latency_seconds,
+	avg_bytes,
+FROM spanner_sys.txn_stats_top_%s
+ORDER BY interval_end DESC;`,
+		t.String(),
+	)))
+	defer iter.Stop()
+
+	results := make([]*TransactionStat, 0, iter.RowCount)
+
+	for {
+		row, err := iter.Next()
+		if err != nil {
+			if err == iterator.Done {
+				break
+			}
+			return nil
+		}
+
+		var b TransactionStat
+		err = row.ToStruct(&b)
+		if err != nil {
+			return nil
+		}
+
 		results = append(results, &b)
 	}
 

@@ -13,14 +13,14 @@ import (
 // Writer for stats collection
 type Writer interface {
 	// Write stats collection to anything
-	Write([]*Stat)
+	Write([]*QueryStat)
 }
 
 type zapWriter struct {
 	logger *zap.Logger
 }
 
-func (w *zapWriter) Write(stats []*Stat) {
+func (w *zapWriter) Write(stats []*QueryStat) {
 	for _, s := range stats {
 		w.logger.Info(
 			"",
@@ -60,7 +60,7 @@ type otelMeasures struct {
 	avgCPUSeconds     metric.Float64Measure
 }
 
-func (w *otelWriter) Write(stats []*Stat) {
+func (w *otelWriter) Write(stats []*QueryStat) {
 	for _, s := range stats {
 		w.meter.RecordBatch(
 			context.Background(),

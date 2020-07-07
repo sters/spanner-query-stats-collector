@@ -3,12 +3,14 @@ package stats
 import (
 	"context"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
 // Worker of stats collector
 type Worker struct {
 	client          *Client
-	statType        statType
+	statType        statDuration
 	writer          Writer
 	ctx             context.Context
 	canceler        context.CancelFunc
@@ -16,7 +18,7 @@ type Worker struct {
 }
 
 // NewWorker returns the new stats collector
-func NewWorker(client *Client, statType statType, writer Writer) *Worker {
+func NewWorker(client *Client, statType statDuration, writer Writer) *Worker {
 	return &Worker{
 		client:          client,
 		statType:        statType,
@@ -53,7 +55,23 @@ func (w *Worker) Stop() {
 }
 
 func (w *Worker) ticker(ctx context.Context) {
-	stats := w.client.GetStats(ctx, StatTypeMin)
+	eg, ctx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		w.getQueryStats(ctx)
+		return nil
+	})
+
+	eg.Go(func() error {
+		w.getTransactionStats(ctx)
+		return nil
+	})
+
+	eg.Wait()
+}
+
+func (w *Worker) getQueryStats(ctx context.Context) {
+	stats := w.client.GetQueryStats(ctx, StatDurationMin)
 	if len(stats) == 0 {
 		return
 	}
@@ -72,4 +90,26 @@ func (w *Worker) ticker(ctx context.Context) {
 		return
 	}
 	w.writer.Write(stats)
+}
+
+func (w *Worker) getTransactionStats(ctx context.Context) {
+	stats := w.client.GetTransactionStats(ctx, StatDurationMin)
+	if len(stats) == 0 {
+		return
+	}
+
+	// filter last 1 intervalEnd
+	e := stats[0].IntervalEnd
+	for i, s := range stats {
+		if e != s.IntervalEnd || w.lastIntervalEnd.After(s.IntervalEnd) {
+			stats = stats[:i]
+			w.lastIntervalEnd = e
+			break
+		}
+	}
+
+	if len(stats) == 0 {
+		return
+	}
+	// w.writer.Write(stats) // TODO
 }
