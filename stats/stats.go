@@ -142,6 +142,7 @@ func (q *TransactionStat) getIntervalEnd() time.Time {
 func (c *Client) GetTransactionStats(ctx context.Context, t statDuration, lastIntervalEnd time.Time) []stat {
 	txn, err := c.spannerClient.BatchReadOnlyTransaction(ctx, spanner.ExactStaleness(time.Minute))
 	if err != nil {
+		fmt.Printf("%+v", err)
 		return nil
 	}
 	defer txn.Close()
@@ -178,12 +179,14 @@ ORDER BY interval_end DESC;`,
 			if err == iterator.Done {
 				break
 			}
+			fmt.Printf("%+v\n", err)
 			return nil
 		}
 
 		var b TransactionStat
 		err = row.ToStruct(&b)
 		if err != nil {
+			fmt.Printf("%+v\n", err)
 			return nil
 		}
 
@@ -213,6 +216,7 @@ func (q *LockStat) getIntervalEnd() time.Time {
 func (c *Client) GetLockStats(ctx context.Context, t statDuration, lastIntervalEnd time.Time) []stat {
 	txn, err := c.spannerClient.BatchReadOnlyTransaction(ctx, spanner.ExactStaleness(time.Minute))
 	if err != nil {
+		fmt.Printf("%+v", err)
 		return nil
 	}
 	defer txn.Close()
@@ -241,12 +245,14 @@ ORDER BY interval_end DESC;`,
 			if err == iterator.Done {
 				break
 			}
+			fmt.Printf("%+v\n", err)
 			return nil
 		}
 
 		var b LockStat
 		err = row.ToStruct(&b)
 		if err != nil {
+			fmt.Printf("%+v\n", err)
 			return nil
 		}
 

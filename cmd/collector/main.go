@@ -10,10 +10,11 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 	"github.com/sters/spanner-query-stats-collector/stats"
-	"go.opentelemetry.io/otel/api/global"
-	metricdogstatsd "go.opentelemetry.io/otel/exporters/metric/dogstatsd"
-	metricstdout "go.opentelemetry.io/otel/exporters/metric/stdout"
-	"go.opentelemetry.io/otel/sdk/metric/controller/push"
+	"go.opentelemetry.io/otel/exporters/stdout"
+	"go.opentelemetry.io/otel/metric/global"
+	controller "go.opentelemetry.io/otel/sdk/metric/controller/basic"
+	processor "go.opentelemetry.io/otel/sdk/metric/processor/basic"
+	"go.opentelemetry.io/otel/sdk/metric/selector/simple"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -62,7 +63,7 @@ func main() {
 		writer = stats.NewZapWriter(logger)
 
 	case "metricstdout":
-		defer initMetricstdout().Stop()
+		defer func(pusher *controller.Controller) { _ = pusher.Stop(ctx) }(initMetricstdout(ctx))
 		writer = stats.NewOpenTelemetryWriter()
 
 	case "dogstatsd":
@@ -72,7 +73,7 @@ func main() {
 		}
 		// See: https://docs.datadoghq.com/ja/tagging/
 		fmt.Fprintln(os.Stderr, "*WARNING* Currently not supported dogstatsd export because SQL can't escaped for dd tags")
-		defer initDogstatsd(cfg.Writer.DogStatsd.URL).Stop()
+		// defer initDogstatsd(cfg.Writer.DogStatsd.URL).Stop()
 		writer = stats.NewOpenTelemetryWriter()
 
 	default:
@@ -101,30 +102,45 @@ func main() {
 	eg.Wait()
 }
 
-func initMetricstdout() *push.Controller {
-	pusher, err := metricstdout.InstallNewPipeline(metricstdout.Config{
-		Quantiles:   []float64{1.0},
-		PrettyPrint: false,
-	})
+func initMetricstdout(ctx context.Context) *controller.Controller {
+	exporter, err := stdout.NewExporter(
+		stdout.WithPrettyPrint(),
+	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to initialize metric stdout exporter: %s", err)
 		os.Exit(1)
 	}
 
-	global.SetMeterProvider(pusher)
-	return pusher
-}
+	pusher := controller.New(
+		processor.New(
+			simple.NewWithExactDistribution(),
+			exporter,
+		),
+		controller.WithExporter(exporter),
+		controller.WithCollectPeriod(5*time.Second),
+	)
 
-func initDogstatsd(url string) *push.Controller {
-	pusher, err := metricdogstatsd.NewExportPipeline(metricdogstatsd.Config{
-		Writer: os.Stdout,
-		//URL: url
-	}, time.Minute)
+	err = pusher.Start(ctx)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to initialize dogstatsd exporter: %s", err)
+		fmt.Fprintf(os.Stderr, "failed to initialize metric stdout exporter: %s", err)
 		os.Exit(1)
 	}
 
-	global.SetMeterProvider(pusher)
+	global.SetMeterProvider(pusher.MeterProvider())
+
 	return pusher
 }
+
+// func initDogstatsd(url string) *controller.Controller {
+// 	pusher, err := metricdogstatsd.NewExportPipeline(metricdogstatsd.Config{
+// 		Writer: os.Stdout,
+// 		//URL: url
+// 	}, time.Minute)
+// 	if err != nil {
+// 		fmt.Fprintf(os.Stderr, "failed to initialize dogstatsd exporter: %s", err)
+// 		os.Exit(1)
+// 	}
+
+// 	global.SetMeterProvider(pusher)
+// 	return pusher
+// }

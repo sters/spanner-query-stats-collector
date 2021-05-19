@@ -60,7 +60,7 @@ func (w *Worker) ticker(ctx context.Context) {
 	getters := []statGetter{
 		w.client.GetQueryStats,
 		w.client.GetTransactionStats,
-		w.client.GetQueryStats,
+		w.client.GetLockStats,
 	}
 	for _, getter := range getters {
 		getter := getter
@@ -75,7 +75,7 @@ func (w *Worker) ticker(ctx context.Context) {
 		})
 	}
 
-	eg.Wait()
+	_ = eg.Wait()
 }
 
 func (w *Worker) getStat(

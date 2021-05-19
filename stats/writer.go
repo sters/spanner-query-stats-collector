@@ -4,9 +4,9 @@ import (
 	"context"
 	"strings"
 
-	"go.opentelemetry.io/otel/api/global"
-	"go.opentelemetry.io/otel/api/key"
-	"go.opentelemetry.io/otel/api/metric"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/global"
 	"go.uber.org/zap"
 )
 
@@ -92,13 +92,13 @@ type otelWriterQuery struct {
 }
 
 type otelWriterQueryMeasures struct {
-	intervalEnd       metric.Int64Measure
+	intervalEnd       metric.Int64ValueRecorder
 	executionCount    metric.Int64Counter
-	avgLatencySeconds metric.Float64Measure
-	avgRows           metric.Float64Measure
-	avgBytes          metric.Float64Measure
-	avgRowsScanned    metric.Float64Measure
-	avgCPUSeconds     metric.Float64Measure
+	avgLatencySeconds metric.Float64ValueRecorder
+	avgRows           metric.Float64ValueRecorder
+	avgBytes          metric.Float64ValueRecorder
+	avgRowsScanned    metric.Float64ValueRecorder
+	avgCPUSeconds     metric.Float64ValueRecorder
 }
 
 type otelWriterTransaction struct {
@@ -107,14 +107,14 @@ type otelWriterTransaction struct {
 }
 
 type otelWriterTransactionMeasures struct {
-	intervalEnd                   metric.Int64Measure
-	commitAttemptCount            metric.Int64Measure
-	commitFailedPreconditionCount metric.Int64Measure
-	commitAbortCount              metric.Int64Measure
-	avgParticipants               metric.Float64Measure
-	avgTotalLatencySeconds        metric.Float64Measure
-	avgCommitLatencySeconds       metric.Float64Measure
-	avgBytes                      metric.Float64Measure
+	intervalEnd                   metric.Int64ValueRecorder
+	commitAttemptCount            metric.Int64Counter
+	commitFailedPreconditionCount metric.Int64Counter
+	commitAbortCount              metric.Int64Counter
+	avgParticipants               metric.Float64ValueRecorder
+	avgTotalLatencySeconds        metric.Float64ValueRecorder
+	avgCommitLatencySeconds       metric.Float64ValueRecorder
+	avgBytes                      metric.Float64ValueRecorder
 }
 
 type otelWriterLock struct {
@@ -123,8 +123,8 @@ type otelWriterLock struct {
 }
 
 type otelWriterLockMeasures struct {
-	intervalEnd     metric.Int64Measure
-	lockWaitSeconds metric.Float64Measure
+	intervalEnd     metric.Int64ValueRecorder
+	lockWaitSeconds metric.Float64ValueRecorder
 }
 
 const (
@@ -139,13 +139,13 @@ func (w *otelWriter) Write(stats []stat) {
 		case *QueryStat:
 			w.query.meter.RecordBatch(
 				context.Background(),
-				w.query.meter.Labels(
-					key.String(
+				[]attribute.KeyValue{
+					attribute.String(
 						"Text",
 						strings.NewReplacer("\r", " ", "\n", " ", "\t", " ").Replace(s.Text),
 					),
-					key.Int64("TextFingerprint", s.TextFingerprint),
-				),
+					attribute.Int64("TextFingerprint", s.TextFingerprint),
+				},
 				w.query.measures.intervalEnd.Measurement(s.IntervalEnd.UnixNano()),
 				w.query.measures.executionCount.Measurement(s.ExecutionCount),
 				w.query.measures.avgLatencySeconds.Measurement(s.AvgLatencySeconds),
@@ -158,12 +158,12 @@ func (w *otelWriter) Write(stats []stat) {
 		case *TransactionStat:
 			w.transaction.meter.RecordBatch(
 				context.Background(),
-				w.transaction.meter.Labels(
-					key.String("ReadColumns", strings.Join(s.ReadColumns, ",")),
-					key.String("WriteConstructiveColumns", strings.Join(s.WriteConstructiveColumns, ",")),
-					key.String("WriteDeleteTables", strings.Join(s.WriteDeleteTables, ",")),
-					key.Int64("Fprint", s.Fprint),
-				),
+				[]attribute.KeyValue{
+					attribute.String("ReadColumns", strings.Join(s.ReadColumns, ",")),
+					attribute.String("WriteConstructiveColumns", strings.Join(s.WriteConstructiveColumns, ",")),
+					attribute.String("WriteDeleteTables", strings.Join(s.WriteDeleteTables, ",")),
+					attribute.Int64("Fprint", s.Fprint),
+				},
 				w.transaction.measures.intervalEnd.Measurement(s.IntervalEnd.UnixNano()),
 				w.transaction.measures.commitAttemptCount.Measurement(s.CommitAttemptCount),
 				w.transaction.measures.commitFailedPreconditionCount.Measurement(s.CommitFailedPreconditionCount),
@@ -177,9 +177,9 @@ func (w *otelWriter) Write(stats []stat) {
 		case *LockStat:
 			w.lock.meter.RecordBatch(
 				context.Background(),
-				w.lock.meter.Labels(
-					key.String("RowRangeStartKey", string(string(s.RowRangeStartKey))),
-					key.String("SampleLockRequests", func() string {
+				[]attribute.KeyValue{
+					attribute.String("RowRangeStartKey", string(string(s.RowRangeStartKey))),
+					attribute.String("SampleLockRequests", func() string {
 						result := strings.Builder{}
 						for _, l := range s.SampleLockRequests {
 							result.WriteRune('(')
@@ -190,7 +190,7 @@ func (w *otelWriter) Write(stats []stat) {
 						}
 						return result.String()
 					}()),
-				),
+				},
 				w.lock.measures.intervalEnd.Measurement(s.IntervalEnd.UnixNano()),
 				w.lock.measures.lockWaitSeconds.Measurement(s.LockWaitSeconds),
 			)
@@ -211,33 +211,33 @@ func NewOpenTelemetryWriter() Writer {
 		query: otelWriterQuery{
 			meter: queryMeter,
 			measures: otelWriterQueryMeasures{
-				intervalEnd:       queryMust.NewInt64Measure(otelMeterNameQuery + ".IntervalEnd"),
+				intervalEnd:       queryMust.NewInt64ValueRecorder(otelMeterNameQuery + ".IntervalEnd"),
 				executionCount:    queryMust.NewInt64Counter(otelMeterNameQuery + ".ExecutionCount"),
-				avgLatencySeconds: queryMust.NewFloat64Measure(otelMeterNameQuery + ".AvgLatencySeconds"),
-				avgRows:           queryMust.NewFloat64Measure(otelMeterNameQuery + ".AvgRows"),
-				avgBytes:          queryMust.NewFloat64Measure(otelMeterNameQuery + ".AvgBytes"),
-				avgRowsScanned:    queryMust.NewFloat64Measure(otelMeterNameQuery + ".AvgRowsScanned"),
-				avgCPUSeconds:     queryMust.NewFloat64Measure(otelMeterNameQuery + ".AvgCpuSeconds"),
+				avgLatencySeconds: queryMust.NewFloat64ValueRecorder(otelMeterNameQuery + ".AvgLatencySeconds"),
+				avgRows:           queryMust.NewFloat64ValueRecorder(otelMeterNameQuery + ".AvgRows"),
+				avgBytes:          queryMust.NewFloat64ValueRecorder(otelMeterNameQuery + ".AvgBytes"),
+				avgRowsScanned:    queryMust.NewFloat64ValueRecorder(otelMeterNameQuery + ".AvgRowsScanned"),
+				avgCPUSeconds:     queryMust.NewFloat64ValueRecorder(otelMeterNameQuery + ".AvgCpuSeconds"),
 			},
 		},
 		transaction: otelWriterTransaction{
 			meter: transactionMeter,
 			measures: otelWriterTransactionMeasures{
-				intervalEnd:                   transactionMust.NewInt64Measure(otelMeterNameQuery + ".IntervalEnd"),
-				commitAttemptCount:            transactionMust.NewInt64Measure(otelMeterNameQuery + ".CommitAttemptCount"),
-				commitFailedPreconditionCount: transactionMust.NewInt64Measure(otelMeterNameQuery + ".CommitFailedPreconditionCount"),
-				commitAbortCount:              transactionMust.NewInt64Measure(otelMeterNameQuery + ".CommitAbortCount"),
-				avgParticipants:               transactionMust.NewFloat64Measure(otelMeterNameQuery + ".AvgParticipants"),
-				avgTotalLatencySeconds:        transactionMust.NewFloat64Measure(otelMeterNameQuery + ".AvgTotalLatencySeconds"),
-				avgCommitLatencySeconds:       transactionMust.NewFloat64Measure(otelMeterNameQuery + ".AvgCommitLatencySeconds"),
-				avgBytes:                      transactionMust.NewFloat64Measure(otelMeterNameQuery + ".AvgBytes"),
+				intervalEnd:                   transactionMust.NewInt64ValueRecorder(otelMeterNameQuery + ".IntervalEnd"),
+				commitAttemptCount:            transactionMust.NewInt64Counter(otelMeterNameQuery + ".CommitAttemptCount"),
+				commitFailedPreconditionCount: transactionMust.NewInt64Counter(otelMeterNameQuery + ".CommitFailedPreconditionCount"),
+				commitAbortCount:              transactionMust.NewInt64Counter(otelMeterNameQuery + ".CommitAbortCount"),
+				avgParticipants:               transactionMust.NewFloat64ValueRecorder(otelMeterNameQuery + ".AvgParticipants"),
+				avgTotalLatencySeconds:        transactionMust.NewFloat64ValueRecorder(otelMeterNameQuery + ".AvgTotalLatencySeconds"),
+				avgCommitLatencySeconds:       transactionMust.NewFloat64ValueRecorder(otelMeterNameQuery + ".AvgCommitLatencySeconds"),
+				avgBytes:                      transactionMust.NewFloat64ValueRecorder(otelMeterNameQuery + ".AvgBytes"),
 			},
 		},
 		lock: otelWriterLock{
 			meter: transactionMeter,
 			measures: otelWriterLockMeasures{
-				intervalEnd:     lockMust.NewInt64Measure(otelMeterNameLock + ".IntervalEnd"),
-				lockWaitSeconds: lockMust.NewFloat64Measure(otelMeterNameQuery + ".LockWaitSeconds"),
+				intervalEnd:     lockMust.NewInt64ValueRecorder(otelMeterNameLock + ".IntervalEnd"),
+				lockWaitSeconds: lockMust.NewFloat64ValueRecorder(otelMeterNameQuery + ".LockWaitSeconds"),
 			},
 		},
 	}
