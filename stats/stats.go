@@ -41,6 +41,12 @@ func (s statDuration) Duration() time.Duration {
 	return 1 * time.Minute
 }
 
+type stat interface {
+	getIntervalEnd() time.Time
+}
+
+type statGetter func(context.Context, statDuration, time.Time) []stat
+
 // QueryStat track the queries with the highest CPU usage during a specific time period
 // followed https://cloud.google.com/spanner/docs/query-stats-tables
 type QueryStat struct {
@@ -56,15 +62,19 @@ type QueryStat struct {
 	AvgCPUSeconds     float64   `spanner:"AVG_CPU_SECONDS"`
 }
 
+func (q *QueryStat) getIntervalEnd() time.Time {
+	return q.IntervalEnd
+}
+
 // GetQueryStats returns Stat collection with specific time period
-func (c *Client) GetQueryStats(ctx context.Context, t statDuration) []*QueryStat {
+func (c *Client) GetQueryStats(ctx context.Context, t statDuration, lastIntervalEnd time.Time) []stat {
 	txn, err := c.spannerClient.BatchReadOnlyTransaction(ctx, spanner.ExactStaleness(time.Minute))
 	if err != nil {
 		return nil
 	}
 	defer txn.Close()
 
-	iter := txn.Query(ctx, spanner.NewStatement(fmt.Sprintf(
+	stmt := spanner.NewStatement(fmt.Sprintf(
 		`SELECT text,
 	interval_end,
 	execution_count,
@@ -74,12 +84,16 @@ func (c *Client) GetQueryStats(ctx context.Context, t statDuration) []*QueryStat
 	avg_rows_scanned,
 	avg_cpu_seconds
 FROM spanner_sys.query_stats_top_%s
+WHERE interval_end > @last_interval_end
 ORDER BY interval_end DESC;`,
 		t.String(),
-	)))
+	))
+	stmt.Params["last_interval_end"] = lastIntervalEnd
+
+	iter := txn.Query(ctx, stmt)
 	defer iter.Stop()
 
-	results := make([]*QueryStat, 0, iter.RowCount)
+	var results []stat
 
 	for {
 		row, err := iter.Next()
@@ -103,7 +117,7 @@ ORDER BY interval_end DESC;`,
 	return results
 }
 
-// TransactionStat track the queries with the highest CPU usage during a specific time period
+// TransactionStat track the transactions during a specific time period
 // followed https://cloud.google.com/spanner/docs/introspection/transaction-statistics
 type TransactionStat struct {
 	IntervalEnd                   time.Time `spanner:"INTERVAL_END"`
@@ -120,15 +134,19 @@ type TransactionStat struct {
 	AvgBytes                      float64   `spanner:"AVG_BYTES"`
 }
 
-// GetTransactionStats returns Stat collection with specific time period
-func (c *Client) GetTransactionStats(ctx context.Context, t statDuration) []*TransactionStat {
+func (q *TransactionStat) getIntervalEnd() time.Time {
+	return q.IntervalEnd
+}
+
+// GetTransactionStats returns stat collection with specific time period
+func (c *Client) GetTransactionStats(ctx context.Context, t statDuration, lastIntervalEnd time.Time) []stat {
 	txn, err := c.spannerClient.BatchReadOnlyTransaction(ctx, spanner.ExactStaleness(time.Minute))
 	if err != nil {
 		return nil
 	}
 	defer txn.Close()
 
-	iter := txn.Query(ctx, spanner.NewStatement(fmt.Sprintf(
+	stmt := spanner.NewStatement(fmt.Sprintf(
 		`SELECT
 	interval_end,
 	fprint,
@@ -143,12 +161,16 @@ func (c *Client) GetTransactionStats(ctx context.Context, t statDuration) []*Tra
 	avg_commit_latency_seconds,
 	avg_bytes,
 FROM spanner_sys.txn_stats_top_%s
+WHERE interval_end > @last_interval_end
 ORDER BY interval_end DESC;`,
 		t.String(),
-	)))
+	))
+	stmt.Params["last_interval_end"] = lastIntervalEnd
+
+	iter := txn.Query(ctx, stmt)
 	defer iter.Stop()
 
-	results := make([]*TransactionStat, 0, iter.RowCount)
+	var results []stat
 
 	for {
 		row, err := iter.Next()
@@ -160,6 +182,69 @@ ORDER BY interval_end DESC;`,
 		}
 
 		var b TransactionStat
+		err = row.ToStruct(&b)
+		if err != nil {
+			return nil
+		}
+
+		results = append(results, &b)
+	}
+
+	return results
+}
+
+// LockStat track the lock columns during a specific time period
+// followed https://cloud.google.com/spanner/docs/introspection/lock-statistics
+type LockStat struct {
+	IntervalEnd        time.Time `spanner:"INTERVAL_END"`
+	RowRangeStartKey   []byte    `spanner:"ROW_RANGE_START_KEY"`
+	LockWaitSeconds    float64   `spanner:"LOCK_WAIT_SECONDS"`
+	SampleLockRequests []struct {
+		LockMode string `spanner:"lock_mode"`
+		Column   string `spanner:"column"`
+	} `spanner:"SAMPLE_LOCK_REQUESTS"`
+}
+
+func (q *LockStat) getIntervalEnd() time.Time {
+	return q.IntervalEnd
+}
+
+// GetLockStats returns Stat collection with specific time period
+func (c *Client) GetLockStats(ctx context.Context, t statDuration, lastIntervalEnd time.Time) []stat {
+	txn, err := c.spannerClient.BatchReadOnlyTransaction(ctx, spanner.ExactStaleness(time.Minute))
+	if err != nil {
+		return nil
+	}
+	defer txn.Close()
+
+	stmt := spanner.NewStatement(fmt.Sprintf(
+		`SELECT
+	interval_end,
+	row_range_start_key,
+	lock_wait_seconds,
+	sample_lock_requests
+FROM spanner_sys.lock_stats_top_%s
+WHERE interval_end > @last_interval_end
+ORDER BY interval_end DESC;`,
+		t.String(),
+	))
+	stmt.Params["last_interval_end"] = lastIntervalEnd
+
+	iter := txn.Query(ctx, stmt)
+	defer iter.Stop()
+
+	var results []stat
+
+	for {
+		row, err := iter.Next()
+		if err != nil {
+			if err == iterator.Done {
+				break
+			}
+			return nil
+		}
+
+		var b LockStat
 		err = row.ToStruct(&b)
 		if err != nil {
 			return nil

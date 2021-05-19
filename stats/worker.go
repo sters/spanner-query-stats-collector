@@ -57,59 +57,45 @@ func (w *Worker) Stop() {
 func (w *Worker) ticker(ctx context.Context) {
 	eg, ctx := errgroup.WithContext(ctx)
 
-	eg.Go(func() error {
-		w.getQueryStats(ctx)
-		return nil
-	})
+	getters := []statGetter{
+		w.client.GetQueryStats,
+		w.client.GetTransactionStats,
+		w.client.GetQueryStats,
+	}
+	for _, getter := range getters {
+		getter := getter
+		eg.Go(func() error {
+			stats := w.getStat(ctx, getter)
+			if len(stats) == 0 {
+				return nil
+			}
+			w.writer.Write(stats)
 
-	eg.Go(func() error {
-		w.getTransactionStats(ctx)
-		return nil
-	})
+			return nil
+		})
+	}
 
 	eg.Wait()
 }
 
-func (w *Worker) getQueryStats(ctx context.Context) {
-	stats := w.client.GetQueryStats(ctx, StatDurationMin)
+func (w *Worker) getStat(
+	ctx context.Context,
+	getter statGetter,
+) []stat {
+	stats := getter(ctx, w.statType, w.lastIntervalEnd)
 	if len(stats) == 0 {
-		return
+		return nil
 	}
 
 	// filter last 1 intervalEnd
-	e := stats[0].IntervalEnd
+	e := stats[0].getIntervalEnd()
 	for i, s := range stats {
-		if e != s.IntervalEnd || w.lastIntervalEnd.After(s.IntervalEnd) {
+		if e != s.getIntervalEnd() || w.lastIntervalEnd.After(s.getIntervalEnd()) {
 			stats = stats[:i]
 			w.lastIntervalEnd = e
 			break
 		}
 	}
 
-	if len(stats) == 0 {
-		return
-	}
-	w.writer.Write(stats)
-}
-
-func (w *Worker) getTransactionStats(ctx context.Context) {
-	stats := w.client.GetTransactionStats(ctx, StatDurationMin)
-	if len(stats) == 0 {
-		return
-	}
-
-	// filter last 1 intervalEnd
-	e := stats[0].IntervalEnd
-	for i, s := range stats {
-		if e != s.IntervalEnd || w.lastIntervalEnd.After(s.IntervalEnd) {
-			stats = stats[:i]
-			w.lastIntervalEnd = e
-			break
-		}
-	}
-
-	if len(stats) == 0 {
-		return
-	}
-	// w.writer.Write(stats) // TODO
+	return stats
 }
