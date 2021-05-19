@@ -59,7 +59,7 @@ func main() {
 		zapConfig.OutputPaths = []string{"stdout"}
 		zapConfig.ErrorOutputPaths = []string{"stderr"}
 		logger, _ := zapConfig.Build()
-		defer logger.Sync()
+		defer func() { _ = logger.Sync() }()
 		writer = stats.NewZapWriter(logger)
 
 	case "metricstdout":
@@ -99,7 +99,7 @@ func main() {
 
 	worker.Stop()
 	cancel()
-	eg.Wait()
+	_ = eg.Wait()
 }
 
 func initMetricstdout(ctx context.Context) *controller.Controller {
