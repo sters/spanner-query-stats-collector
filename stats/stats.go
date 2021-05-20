@@ -67,7 +67,7 @@ func (q *QueryStat) getIntervalEnd() time.Time {
 }
 
 // GetQueryStats returns Stat collection with specific time period
-func (c *Client) GetQueryStats(ctx context.Context, t statDuration, lastIntervalEnd time.Time) []stat {
+func (c *Client) getQueryStats(ctx context.Context, t statDuration, lastIntervalEnd time.Time) []stat {
 	txn, err := c.spannerClient.BatchReadOnlyTransaction(ctx, spanner.ExactStaleness(time.Minute))
 	if err != nil {
 		return nil
@@ -139,7 +139,7 @@ func (q *TransactionStat) getIntervalEnd() time.Time {
 }
 
 // GetTransactionStats returns stat collection with specific time period
-func (c *Client) GetTransactionStats(ctx context.Context, t statDuration, lastIntervalEnd time.Time) []stat {
+func (c *Client) getTransactionStats(ctx context.Context, t statDuration, lastIntervalEnd time.Time) []stat {
 	txn, err := c.spannerClient.BatchReadOnlyTransaction(ctx, spanner.ExactStaleness(time.Minute))
 	if err != nil {
 		fmt.Printf("%+v", err)
@@ -213,7 +213,7 @@ func (q *LockStat) getIntervalEnd() time.Time {
 }
 
 // GetLockStats returns Stat collection with specific time period
-func (c *Client) GetLockStats(ctx context.Context, t statDuration, lastIntervalEnd time.Time) []stat {
+func (c *Client) getLockStats(ctx context.Context, t statDuration, lastIntervalEnd time.Time) []stat {
 	txn, err := c.spannerClient.BatchReadOnlyTransaction(ctx, spanner.ExactStaleness(time.Minute))
 	if err != nil {
 		fmt.Printf("%+v", err)

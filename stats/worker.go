@@ -58,9 +58,9 @@ func (w *Worker) ticker(ctx context.Context) {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	getters := []statGetter{
-		w.client.GetQueryStats,
-		w.client.GetTransactionStats,
-		w.client.GetLockStats,
+		w.client.getQueryStats,
+		w.client.getTransactionStats,
+		w.client.getLockStats,
 	}
 	for _, getter := range getters {
 		getter := getter
