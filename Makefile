@@ -1,19 +1,34 @@
+export GOBIN := $(PWD)/bin
+export PATH := $(GOBIN):$(PATH)
 
-export GO111MODULE=on
+TOOLS=$(shell cat tools/tools.go | egrep '^\s_ '  | awk '{ print $$2 }')
 
 .PHONY: bootstrap-tools
 bootstrap-tools:
-	GO111MODULE=off go get -u golang.org/x/lint/golint
+	@echo "Installing: " $(TOOLS)
+	@go install $(TOOLS)
+
+.PHONY: run
+run:
+	go run cmd/collector/main.go
 
 .PHONY: lint
 lint:
-	golint ./...
+	golangci-lint run -v ./...
+	go-consistent -v ./...
+
+.PHONY: lint-fix
+lint-fix:
+	golangci-lint run --fix -v ./...
 
 .PHONY: test
 test:
-	go test -race ./...
+	go test -v -race ./...
 
 .PHONY: cover
 cover:
-	go test -cover -race ./...
+	go test -v -race -coverpkg=./... -coverprofile=coverage.txt ./...
 
+.PHONY: tidy
+tidy:
+	go mod tidy
