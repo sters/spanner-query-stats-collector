@@ -10,18 +10,18 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-type statDuration int
+type StatDuration int
 
 const (
 	// StatDurationMin focus 1 minute
-	StatDurationMin statDuration = iota
+	StatDurationMin StatDuration = iota
 	// StatDuration10Min focus 10 minutes
 	StatDuration10Min
 	// StatDurationHour focus 1 hour
 	StatDurationHour
 )
 
-func (s statDuration) String() string {
+func (s StatDuration) String() string {
 	switch s {
 	case StatDuration10Min:
 		return "10minute"
@@ -31,7 +31,7 @@ func (s statDuration) String() string {
 	return "minute"
 }
 
-func (s statDuration) Duration() time.Duration {
+func (s StatDuration) Duration() time.Duration {
 	switch s {
 	case StatDuration10Min:
 		return 10 * time.Minute
@@ -45,7 +45,7 @@ type stat interface {
 	getIntervalEnd() time.Time
 }
 
-type statGetter func(context.Context, statDuration, time.Time) []stat
+type statGetter func(context.Context, StatDuration, time.Time) []stat
 
 // QueryStat track the queries with the highest CPU usage during a specific time period
 // followed https://cloud.google.com/spanner/docs/query-stats-tables
@@ -67,7 +67,7 @@ func (q *QueryStat) getIntervalEnd() time.Time {
 }
 
 // GetQueryStats returns Stat collection with specific time period
-func (c *Client) getQueryStats(ctx context.Context, t statDuration, lastIntervalEnd time.Time) []stat {
+func (c *Client) getQueryStats(ctx context.Context, t StatDuration, lastIntervalEnd time.Time) []stat {
 	txn, err := c.spannerClient.BatchReadOnlyTransaction(ctx, spanner.ExactStaleness(time.Minute))
 	if err != nil {
 		return nil
@@ -139,7 +139,7 @@ func (q *TransactionStat) getIntervalEnd() time.Time {
 }
 
 // GetTransactionStats returns stat collection with specific time period
-func (c *Client) getTransactionStats(ctx context.Context, t statDuration, lastIntervalEnd time.Time) []stat {
+func (c *Client) getTransactionStats(ctx context.Context, t StatDuration, lastIntervalEnd time.Time) []stat {
 	txn, err := c.spannerClient.BatchReadOnlyTransaction(ctx, spanner.ExactStaleness(time.Minute))
 	if err != nil {
 		fmt.Printf("%+v", err)
@@ -213,7 +213,7 @@ func (q *LockStat) getIntervalEnd() time.Time {
 }
 
 // GetLockStats returns Stat collection with specific time period
-func (c *Client) getLockStats(ctx context.Context, t statDuration, lastIntervalEnd time.Time) []stat {
+func (c *Client) getLockStats(ctx context.Context, t StatDuration, lastIntervalEnd time.Time) []stat {
 	txn, err := c.spannerClient.BatchReadOnlyTransaction(ctx, spanner.ExactStaleness(time.Minute))
 	if err != nil {
 		fmt.Printf("%+v", err)
