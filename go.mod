@@ -17,5 +17,5 @@ require (
 	go.uber.org/zap v1.18.1
 	golang.org/x/net v0.0.0-20210510120150-4163338589ed // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	google.golang.org/api v0.50.0
+	google.golang.org/api v0.51.0
 )
