@@ -33,6 +33,7 @@ type config struct {
 			URL string `envconfig:"URL"`
 		} `envconfig:"DOGSTATSD"`
 	} `envconfig:"WRITER"`
+	StatDuration string `envconfig:"STAT_DURATION" default:"1min"`
 }
 
 const (
@@ -105,9 +106,22 @@ func realmain() error {
 		return fmt.Errorf("unexpected writer mode: %s", cfg.Writer.Mode)
 	}
 
+	var statDuration stats.StatDuration
+
+	switch cfg.StatDuration {
+	case "1min":
+		statDuration = stats.StatDurationMin
+	case "10min":
+		statDuration = stats.StatDuration10Min
+	case "1hour":
+		statDuration = stats.StatDurationHour
+	default:
+		return fmt.Errorf("invalid duration variable %s. must set '1min' or '10min' or '1hour'", cfg.StatDuration)
+	}
+
 	worker := stats.NewWorker(
 		client,
-		stats.StatDurationMin,
+		statDuration,
 		writer,
 	)
 

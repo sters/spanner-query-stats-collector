@@ -10,7 +10,7 @@ import (
 // Worker of stats collector
 type Worker struct {
 	client          *Client
-	statType        statDuration
+	statType        StatDuration
 	writer          Writer
 	ctx             context.Context
 	canceler        context.CancelFunc
@@ -18,7 +18,7 @@ type Worker struct {
 }
 
 // NewWorker returns the new stats collector
-func NewWorker(client *Client, statType statDuration, writer Writer) *Worker {
+func NewWorker(client *Client, statType StatDuration, writer Writer) *Worker {
 	return &Worker{
 		client:          client,
 		statType:        statType,
