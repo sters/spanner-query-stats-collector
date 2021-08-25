@@ -5,7 +5,7 @@ go 1.16
 require (
 	cloud.google.com/go/spanner v1.24.0
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golangci/golangci-lint v1.41.1
+	github.com/golangci/golangci-lint v1.42.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/quasilyte/go-consistent v0.0.0-20200404105227-766526bf1e96
 	go.opentelemetry.io/contrib/exporters/metric/dogstatsd v0.20.0
@@ -17,5 +17,5 @@ require (
 	go.uber.org/zap v1.19.0
 	golang.org/x/net v0.0.0-20210510120150-4163338589ed // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	google.golang.org/api v0.52.0
+	google.golang.org/api v0.54.0
 )
