@@ -1,5 +1,12 @@
 # spanner-query-stats-collector
 
+Now, you can use [googlecloudspannerreceiver in open-telemetry/opentelemetry-collector-contrib](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/googlecloudspannerreceiver) for collect query stats.
+
+This `spanner-query-stats-collector` does not need anymore.
+
+---
+
+
 ![Go](https://github.com/sters/spanner-query-stats-collector/workflows/Go/badge.svg)
 ![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/sters/spanner-query-stats-collector?style=plastic)
 
